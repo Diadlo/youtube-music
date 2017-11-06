@@ -50,7 +50,7 @@ def get_description(url):
 
 def improve_chapters(chapters):
     # Remove numbers
-    pattern = re.compile(r'^[0-9]+\.? ?-? ?')
+    pattern = re.compile(r'[0-9]+\.? ?-? ?')
     for c in chapters:
         title = c['title']
         c['title'] = pattern.split(title)[-1]
@@ -58,33 +58,60 @@ def improve_chapters(chapters):
     return chapters
 
 
+_TIME_RE = r'([0-9]{1,2}(:[0-9]{2})+)'
+_TIME_PATTERN = re.compile(_TIME_RE)
+
+def remove_time(text):
+    strings = _TIME_PATTERN.sub('', text)
+    return strings.strip()
+
+def get_info(text):
+    title = remove_time(text)
+    time = re.findall(_TIME_RE, text)
+    start_time = time[0]
+    if isinstance(start_time, tuple):
+        start_time = start_time[0]
+
+    end_time = None
+    if len(time) > 1:
+        end_time = time[1]
+        if isinstance(end_time, tuple):
+            end_time = end_time[0]
+
+    return (title, start_time, end_time)
+
 def parse_description(desc):
     tracks_info = desc.split('\n')
-    pattern = re.compile(r'.+ - [0-9]{2}:[0-9]{2}')
-    tracks_info = filter(lambda s: pattern.match(s) is not None, tracks_info)
-    tracks = [ {} ]
+    tracks_info = filter(lambda s: _TIME_PATTERN.findall(s) != [], tracks_info)
+    tracks = []
     for track_info in tracks_info:
-        name = track_info.split(' - ')[0]
-        time = track_info.split(' - ')[1]
+        title, start, end = get_info(track_info)
         track = {
-            'title': t['name'],
-            'start_time': time,
+            'title': title,
+            'start_time': start,
+            'end_time': end,
         }
-        tracks[-1]['end_time'] = time
+        
+        if len(tracks) > 0 and tracks[-1]['end_time'] is None:
+            tracks[-1]['end_time'] = start
+
         tracks.append(track)
 
-    tracks[-1]['end_time'] = time
-    tracks = tracks[1:]
+    if len(tracks) > 0 and tracks[-1]['end_time'] is None:
+        tracks[-1]['end_time'] = start
+
     return tracks
 
 
 def get_tracks(info):
     chapters = info['chapters']
-    if chapters is not None:
-        return improve_chapters(chapters)
+    chapters = None
+    if chapters is None:
+        print('\nChapters not found. Trying parse desription')
+        desc = info['description']
+        chapters = parse_description(desc)
 
-    desc = info['description']
-    return parse_description(desc)
+    return improve_chapters(chapters)
 
 
 def get_creator(info):
@@ -98,7 +125,11 @@ def get_creator(info):
 
 def get_album(info):
     title = info['title']
-    return title.split(' - ')[1].replace('/', '_')
+    a = title.split(' - ')
+    if len(a) == 1:
+        return title
+
+    return a[1].replace('/', '_')
 
 
 def enter_bool(prompt='', default=True):
@@ -178,11 +209,6 @@ if __name__ == "__main__":
         exit(0)
 
     url = sys.argv[1]
-    tmp_file = 'youtube_music_tmp'
-    audio_file = download(url, tmp_file)
-    if audio_file is None:
-        exit(1)
-
     info = get_description(url)
 
     creator = get_creator(info)
@@ -198,5 +224,10 @@ if __name__ == "__main__":
     template = update_template(template, creator, album, len(tracks))
     path = os.path.dirname(template)
     os.makedirs(path, exist_ok = True)
+
+    tmp_file = 'youtube_music_tmp'
+    audio_file = download(url, tmp_file)
+    if audio_file is None:
+        exit(1)
+
     split_tracks(audio_file, template, creator, album, tracks)
-#os.remove(audio_file)
