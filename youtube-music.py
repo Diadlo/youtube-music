@@ -5,6 +5,7 @@ import os
 import sys
 import re
 import json
+import re
 
 from tempfile import mkstemp
 
@@ -79,6 +80,14 @@ def get_info(text):
             end_time = end_time[0]
 
     return (title, start_time, end_time)
+
+def get_duration(filename):
+    ffprobe = subprocess.Popen(['ffprobe', '-i', filename],
+            stderr=subprocess.PIPE)
+    out, err = ffprobe.communicate();
+    text = err.decode('utf8')
+    res = re.search(r'(?<=Duration: )[0-9:.]+', text).group(0)
+    return res
 
 def parse_description(desc):
     tracks_info = desc.split('\n')
@@ -230,4 +239,5 @@ if __name__ == "__main__":
     if audio_file is None:
         exit(1)
 
+    tracks[-1]['end_time'] = get_duration(audio_file)
     split_tracks(audio_file, template, creator, album, tracks)
