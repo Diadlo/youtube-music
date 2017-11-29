@@ -219,8 +219,8 @@ def split_tracks(audio_file, template, creator, album, tracks):
 
 if __name__ == "__main__":
     argc = len(sys.argv)
-    if argc != 2:
-        print('Usage: {} <url>'.format(sys.argv[0]))
+    if argc < 2 or argc > 3:
+        print('Usage: {} <url> [<template>]'.format(sys.argv[0]))
         exit(0)
 
     url = sys.argv[1]
@@ -236,6 +236,9 @@ if __name__ == "__main__":
     tracks = enter_tracks(tracks)
     
     template = '{creator}/{album}/{id}. {track}.mp3'
+    if argc > 2:
+        template = sys.argv[2]
+
     template = update_template(template, creator, album, len(tracks))
     path = os.path.dirname(template)
     os.makedirs(path, exist_ok = True)
