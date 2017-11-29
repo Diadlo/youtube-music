@@ -68,6 +68,12 @@ def remove_time(text):
 
 def get_info(text):
     title = remove_time(text)
+    words = re.search("[a-zA-Z' ]+", text)
+    if words is not None:
+        t = words.group(0).strip()
+        if t != '':
+            title = t
+
     time = re.findall(_TIME_RE, text)
     start_time = time[0]
     if isinstance(start_time, tuple):
